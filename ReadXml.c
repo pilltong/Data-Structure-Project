@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#define MAX_TERMS 1000
 #define TOTAL_BUS 100
+int route;
 typedef struct _head_c* headc_pointer;
 typedef struct _head_c {
     //data
@@ -64,15 +64,18 @@ int main() {
         tail[i] = malloc(sizeof(bus_node));
     }
 
+    
 
-
-    fp = fopen("A.txt", "r");
+    fp = fopen("in-2020-11-28.txt", "r");
     if (fp == NULL) {
         printf("Could not open file");
     }
 
     x = read_first_line(fp);
-
+    
+    printf("%d",route);
+    
+    
     while (!feof(fp)) {
         temp=data_read(fp);
 
@@ -81,7 +84,7 @@ int main() {
             head[listNum]->next_c= tail[listNum];
             head[listNum]->plateNo = temp.plateNo;
             head[listNum]->stationExp = temp.stationSeq;//exp값 업데이트
-
+            
             /*list에 node 추가*/
             bus_node* tempNode = (bus_node*)malloc(sizeof(bus_node));
             tempNode->stationSeq = temp.stationSeq;
@@ -91,7 +94,7 @@ int main() {
             tail[listNum] = tail[listNum]->next;
 
             listNum++;
-        }
+        } 
         else {
             j = 0;
             for (i = 0; i < listNum; i++) {
@@ -136,12 +139,10 @@ int main() {
             }
         }
     }
+    
+    printf("%d", head[2]->stationExp);
 
-
-
-
-
-
+    
 }
 
 struct tm read_first_line(FILE* f) {
@@ -173,7 +174,7 @@ struct tm read_first_line(FILE* f) {
     char* strSecond = strtok(NULL, ".");
     int second = atoi(strSecond);
 
-    //first->routeId = routeId;
+    route = routeId;
     t.tm_year = year;
     t.tm_mon = month;
     t.tm_mday = day;
@@ -187,7 +188,7 @@ struct tm read_first_line(FILE* f) {
 }
 
 
-data read_lines(FILE* f) {
+data data_read(FILE* f) {
     char* buffer;
     char* plateNo;
     data n;
