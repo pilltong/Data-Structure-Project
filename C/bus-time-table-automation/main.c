@@ -48,12 +48,15 @@ struct tm read_first_line(FILE* f);
 node_pointer read_lines(FILE* f);
 headp_pointer first;
 
-// routeId struct
+
+
 typedef struct routeId_node* routeId_pointer;
 typedef struct routeId_node {
 	int routeId;
 	routeId_pointer next;
 }routeId_node;
+
+
 // routeId function
 void pushRouteId(routeId_pointer, int);
 void readRouteIdList(routeId_pointer);
@@ -73,7 +76,9 @@ folderpath_pointer initFolderpathPtr();
 void pushFolderpath(folderpath_pointer, char*);
 void readFolderpathList(folderpath_pointer);
 folderpath_pointer getFolderpathList(routeId_pointer);
-
+folderpath_pointer listdir(char* filepathStr);
+void pushPathPtr(folderpath_pointer, folderpath_pointer);
+void readPathPtr(folderpath_pointer headPointer);
 
 
 // 파일 경로 제작 함수
@@ -84,70 +89,8 @@ char* makeFileName(int year, int month, int day) {
 	return tempString;
 }
 
-/*
-코드출처: [C] 파일 목록 가져오기, 꾸준희, 2018.08.16, 	https://eehoeskrap.tistory.com/256
-*/
-folderpath_pointer initFolderpathPtr() {
-	folderpath_pointer folderpathPtr = malloc(sizeof(folderpath_node));
-	folderpathPtr->down = NULL;
-	folderpathPtr->next = NULL;
-	return folderpathPtr;
-}
 
-folderpath_pointer listdir(char* filepathStr) {
-	folderpath_pointer routeIdPathHead = initFolderpathPtr();
 
-	char* extension = "/*.txt*";
-	char inputFolderPath[33];
-	char* slash = "/";
-	strcpy(inputFolderPath, filepathStr);
-	strcat(inputFolderPath, slash);
-	char pathFinder[39];
-	strcpy(pathFinder, filepathStr);
-	strcat(pathFinder, extension);
-	//printf("%s", pathFinder);
-
-	struct _finddata_t findData;
-	intptr_t handle;
-	int fdResult = 1;
-
-	handle = _findfirst(pathFinder, &findData);
-
-	if (handle == -1) {
-		return routeIdPathHead;
-	}
-	while (fdResult != -1) {
-
-		//printf("파일명 : %s, 크기:%d\n", findData.name, findData.size);
-		char filePath[47];
-		strcpy(filePath, inputFolderPath);
-		strcat(filePath, findData.name);
-		//printf("%s\n", filePath);
-		pushFolderpath(routeIdPathHead, filePath);
-		fdResult = _findnext(handle, &findData);
-	}
-	_findclose(handle);
-	return routeIdPathHead;
-}
-
-void pushPathPtr(folderpath_pointer, folderpath_pointer);
-void pushPathPtr(folderpath_pointer headPointer, folderpath_pointer pointer) {
-	pointer->down = headPointer->down;
-	headPointer->down = pointer;
-}
-
-void readPathPtr(folderpath_pointer headPointer);
-void readPathPtr(folderpath_pointer headPointer) {
-	folderpath_pointer tempPointer = headPointer->down;
-	while (tempPointer != NULL) {
-		folderpath_pointer routeIdPointer = tempPointer->down;
-		while (routeIdPointer != NULL) {
-			printf("%s\n", routeIdPointer->filepathStr);
-			routeIdPointer = routeIdPointer->next;
-		}
-		tempPointer = tempPointer->down;
-	}
-}
 
 
 int main(void) {
@@ -225,6 +168,14 @@ routeId_pointer getRouteIdList(char* folderPath) {
 /*
 folderPath와 관련된 함수 목록입니다.
 */
+
+folderpath_pointer initFolderpathPtr() {
+	folderpath_pointer folderpathPtr = malloc(sizeof(folderpath_node));
+	folderpathPtr->down = NULL;
+	folderpathPtr->next = NULL;
+	return folderpathPtr;
+}
+
 void pushFolderpath(folderpath_pointer stringPtr, char* strRouteId) {
 	folderpath_pointer tempStringPtr = malloc(sizeof(folderpath_node));
 	strcpy(tempStringPtr->filepathStr, strRouteId);
@@ -266,4 +217,60 @@ folderpath_pointer getFolderpathList(routeId_pointer routeIdList) {
 		tempRouteId = tempRouteId->next;
 	}
 	return inputFolderPathList;
+}
+
+
+
+folderpath_pointer listdir(char* filepathStr) {
+	folderpath_pointer routeIdPathHead = initFolderpathPtr();
+
+	char* extension = "/*.txt*";
+	char inputFolderPath[33];
+	char* slash = "/";
+	strcpy(inputFolderPath, filepathStr);
+	strcat(inputFolderPath, slash);
+	char pathFinder[39];
+	strcpy(pathFinder, filepathStr);
+	strcat(pathFinder, extension);
+	//printf("%s", pathFinder);
+
+	/* 	코드출처: [C] 파일 목록 가져오기, 꾸준희, 2018.08.16, 	https://eehoeskrap.tistory.com/256 	*/
+	struct _finddata_t findData;
+	intptr_t handle;
+	int fdResult = 1;
+
+	handle = _findfirst(pathFinder, &findData);
+
+	if (handle == -1) {
+		return routeIdPathHead;
+	}
+	while (fdResult != -1) {
+
+		//printf("파일명 : %s, 크기:%d\n", findData.name, findData.size);
+		char filePath[47];
+		strcpy(filePath, inputFolderPath);
+		strcat(filePath, findData.name);
+		//printf("%s\n", filePath);
+		pushFolderpath(routeIdPathHead, filePath);
+		fdResult = _findnext(handle, &findData);
+	}
+	_findclose(handle);
+	return routeIdPathHead;
+}
+
+void pushPathPtr(folderpath_pointer headPointer, folderpath_pointer pointer) {
+	pointer->down = headPointer->down;
+	headPointer->down = pointer;
+}
+
+void readPathPtr(folderpath_pointer headPointer) {
+	folderpath_pointer tempPointer = headPointer->down;
+	while (tempPointer != NULL) {
+		folderpath_pointer routeIdPointer = tempPointer->down;
+		while (routeIdPointer != NULL) {
+			printf("%s\n", routeIdPointer->filepathStr);
+			routeIdPointer = routeIdPointer->next;
+		}
+		tempPointer = tempPointer->down;
+	}
 }
