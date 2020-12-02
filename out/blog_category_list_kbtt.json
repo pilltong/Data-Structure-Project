@@ -1,0 +1,51 @@
+{
+    "tistory": {
+        "status": "200",
+        "item": {
+            "url": "kbtt",
+            "secondaryUrl": "",
+            "categories": [
+                {
+                    "id": "907413",
+                    "name": "성남",
+                    "parent": "",
+                    "label": "성남",
+                    "entries": "3",
+                    "entriesInLogin": "3"
+                },
+                {
+                    "id": "907414",
+                    "name": "수원",
+                    "parent": "",
+                    "label": "수원",
+                    "entries": "1",
+                    "entriesInLogin": "1"
+                },
+                {
+                    "id": "907415",
+                    "name": "용인",
+                    "parent": "",
+                    "label": "용인",
+                    "entries": "1",
+                    "entriesInLogin": "1"
+                },
+                {
+                    "id": "907537",
+                    "name": "파주",
+                    "parent": "",
+                    "label": "파주",
+                    "entries": "2",
+                    "entriesInLogin": "2"
+                },
+                {
+                    "id": "907540",
+                    "name": "광주",
+                    "parent": "",
+                    "label": "광주",
+                    "entries": "1",
+                    "entriesInLogin": "1"
+                }
+            ]
+        }
+    }
+}

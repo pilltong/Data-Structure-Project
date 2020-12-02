@@ -1,0 +1,26 @@
+{
+    "tistory": {
+        "status": "200",
+        "item": {
+            "url": "https://kbtt.tistory.com",
+            "secondaryUrl": "",
+            "id": "11",
+            "slogan": "title",
+            "title": "title",
+            "content": "test content",
+            "categoryId": "0",
+            "postUrl": "https://kbtt.tistory.com/entry/title",
+            "visibility": "20",
+            "acceptComment": "1",
+            "acceptTrackback": "0",
+            "comments": "0",
+            "trackbacks": "0",
+            "date": "2020-11-30 04:16:28",
+            "tags": {
+                "tag": [
+                    "tag"
+                ]
+            }
+        }
+    }
+}
