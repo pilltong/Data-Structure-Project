@@ -7,6 +7,7 @@
 
 typedef struct routeId_head* routeId_pointer;
 typedef struct folderpath_node* folderpath_pointer;
+
 // routeId struct
 typedef struct routeId_head {
 	routeId_pointer next;
@@ -14,16 +15,43 @@ typedef struct routeId_head {
 	int routeId;
 	char rootpathStr[32];
 }routeId_head;
+
 // folderpath struct
 typedef struct folderpath_node {
 	char filepathStr[47];
 	folderpath_pointer next;
 }folderpath_node;
 
-/* 
-routeId function
-*/
-//routeId_pointer initRouteIdHeadptr(int routeId);
+/* routeId function*/
+routeId_pointer initRouteIdHeadptr(int routeId);
+void pushRouteId(routeId_pointer, int);
+routeId_pointer getRouteIdList(char*);
+void readRouteIdList(routeId_pointer routeIdList);
+void readAllRouteIdList(routeId_pointer routeIdList);
+
+/*folderpath function*/
+folderpath_pointer initFolderpathPtr();
+void pushFolderpath(folderpath_pointer, char*);
+void readFolderpathList(folderpath_pointer filepathListPointer);
+void getFolderpathList(routeId_pointer routeIdList);
+folderpath_pointer listdir(char* filepathStr);
+void getFilepathList(routeId_pointer routeIdList);
+
+int main(void) {
+
+	routeId_pointer routeIdList = getRouteIdList();
+	//readRouteIdList(routeIdList);
+
+	getFolderpathList(routeIdList);
+	//readRouteIdList(routeIdList);
+
+	getFilepathList(routeIdList);
+	//readAllRouteIdList(routeIdList);
+
+	return 0;
+}
+
+
 routeId_pointer initRouteIdHeadptr(int routeId) {
 	routeId_pointer routeIdHeadPtr = malloc(sizeof(routeId_head));
 	routeIdHeadPtr->next = NULL;
@@ -31,18 +59,18 @@ routeId_pointer initRouteIdHeadptr(int routeId) {
 	routeIdHeadPtr->routeId = routeId;
 	return routeIdHeadPtr;
 }
-//void pushRouteId(routeId_pointer, int);
+
 void pushRouteId(routeId_pointer routeIdList, int routeId) {
 	// Stack 구조로 routeIdList를 구현합니다.
 	// routeId_head를 초기화 합니다.
 	routeId_pointer routeIdPtr = initRouteIdHeadptr(routeId);
 
-	// routeId_head를 
 	routeIdPtr->next = routeIdList->next;
 	routeIdList->next = routeIdPtr;
 }
-//routeId_pointer getRouteIdList(char*);
-routeId_pointer getRouteIdList(char* folderPath) {
+
+routeId_pointer getRouteIdList() {
+	char folderPath[] = { "DATA/route-id-list/routeIdList.txt" };
 	FILE* routeIdListTXT;
 	routeIdListTXT = fopen(folderPath, "r");
 	// routeId_pointer 형식의 변수 routeIdList를 초기화 합니다.
@@ -55,7 +83,7 @@ routeId_pointer getRouteIdList(char* folderPath) {
 	}
 	return routeIdList;
 }
-//void readRouteIdList(routeId_pointer routeIdList);
+
 void readRouteIdList(routeId_pointer routeIdList) {
 	routeId_pointer tempRouteId = routeIdList->next;
 	if (tempRouteId == NULL) {
@@ -69,7 +97,7 @@ void readRouteIdList(routeId_pointer routeIdList) {
 		tempRouteId = tempRouteId->next;
 	}
 }
-//void readAllRouteIdList(routeId_pointer routeIdList);
+
 void readAllRouteIdList(routeId_pointer routeIdList) {
 	routeId_pointer tempRouteId = routeIdList->next;
 	if (tempRouteId == NULL) {
@@ -89,23 +117,19 @@ void readAllRouteIdList(routeId_pointer routeIdList) {
 	}
 }
 
-/*
-folderpath function
-*/
-//folderpath_pointer initFolderpathPtr();
 folderpath_pointer initFolderpathPtr() {
 	folderpath_pointer folderpathPtr = malloc(sizeof(folderpath_node));
 	folderpathPtr->next = NULL;
 	return folderpathPtr;
 }
-//void pushFolderpath(folderpath_pointer, char*);
+
 void pushFolderpath(routeId_pointer tempRouteId, char* strRouteId) {
 	folderpath_pointer tempStringPtr = initFolderpathPtr();
 	strcpy(tempStringPtr->filepathStr, strRouteId);
 	tempStringPtr->next = tempRouteId->down;
 	tempRouteId->down = tempStringPtr;
 }
-//void readFolderpathList(folderpath_pointer filepathListPointer);
+
 void readFolderpathList(folderpath_pointer filepathListPointer)
 {
 	folderpath_pointer tempString = filepathListPointer->next;
@@ -119,7 +143,7 @@ void readFolderpathList(folderpath_pointer filepathListPointer)
 		tempString = tempString->next;
 	}
 }
-//void getFolderpathList(routeId_pointer routeIdList);
+
 void getFolderpathList(routeId_pointer routeIdList) {
 	routeId_pointer tempRouteId = routeIdList->next;
 	if (tempRouteId == NULL) {
@@ -137,7 +161,7 @@ void getFolderpathList(routeId_pointer routeIdList) {
 		tempRouteId = tempRouteId->next;
 	}
 }
-//folderpath_pointer listdir(char* filepathStr);
+
 folderpath_pointer listdir(routeId_pointer tempRouteId) {
 	char* filepathStr = tempRouteId->rootpathStr;
 	folderpath_pointer routeIdPathHead = initFolderpathPtr();
@@ -175,21 +199,10 @@ folderpath_pointer listdir(routeId_pointer tempRouteId) {
 	return routeIdPathHead;
 }
 
-int main(void) {
-
-	char routeIdListPath[] = { "DATA/route-id-list/routeIdList.txt" };
-	routeId_pointer routeIdList = getRouteIdList(routeIdListPath);
-	//readRouteIdList(routeIdList);
-
-	getFolderpathList(routeIdList);
-	//readRouteIdList(routeIdList);
-
+void getFilepathList(routeId_pointer routeIdList) {
 	routeId_pointer tempRouteId = routeIdList->next;
 	while (tempRouteId != NULL) {
 		listdir(tempRouteId);
 		tempRouteId = tempRouteId->next;
 	}
-	readAllRouteIdList(routeIdList);
-
-	return 0;
 }
