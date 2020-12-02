@@ -7,6 +7,11 @@
 
 typedef struct routeId_head* routeId_pointer;
 typedef struct folderpath_node* folderpath_pointer;
+typedef struct _head_h* headh_pointer;
+typedef struct _head_r* headr_pointer;
+typedef struct _head_p* headp_pointer;
+typedef struct _head_c* headc_pointer;
+typedef struct bus_node* node_pointer;
 
 // routeId struct
 typedef struct routeId_head {
@@ -22,35 +27,167 @@ typedef struct folderpath_node {
 	folderpath_pointer next;
 }folderpath_node;
 
+//headheadheadhead
+typedef struct _head_h {
+	headh_pointer next_h;
+	headr_pointer down_h;
+}_head_h;
+
+//headheadhead
+typedef struct _head_r {
+	headr_pointer next_r;
+	headp_pointer down_r;
+	int maxStaSeq;
+	int maxBusCnt;
+	int routeId;
+} _head_r;
+
+//head head
+typedef struct _head_p {
+	headp_pointer next_p;
+	headc_pointer down_p;
+	node_pointer** dailyTimeTable;
+	struct tm qdate;
+	int totalBus;
+	//int routeId;
+} _head_p;
+
+//head
+typedef struct _head_c {
+	headc_pointer next_c;
+	node_pointer down_c;
+	char plateNo[12];
+	int busNoExp;
+	int stationExp;
+} _head_c;
+
+//main struct
+typedef struct bus_node {
+	//data
+	struct tm qtime;
+	int routeId;
+	int stationId;
+	int stationSeq;
+	int endBus;
+	int lowPlate;
+	char plateNo[12];
+	int plateType;
+	int remainSeat;
+	//link
+	node_pointer next;
+} bus_node;
+
 /* routeId function*/
 routeId_pointer initRouteIdHeadptr(int routeId);
 void pushRouteId(routeId_pointer, int);
-routeId_pointer getRouteIdList(char*);
+routeId_pointer getRouteIdList();
 void readRouteIdList(routeId_pointer routeIdList);
 void readAllRouteIdList(routeId_pointer routeIdList);
 
 /*folderpath function*/
 folderpath_pointer initFolderpathPtr();
-void pushFolderpath(folderpath_pointer, char*);
+void pushFolderpath(routeId_pointer, char*);
 void readFolderpathList(folderpath_pointer filepathListPointer);
 void getFolderpathList(routeId_pointer routeIdList);
-folderpath_pointer listdir(char* filepathStr);
+folderpath_pointer listdir(routeId_pointer);
 void getFilepathList(routeId_pointer routeIdList);
 
-int main(void) {
+/* */
+headh_pointer initHeadH();
+headr_pointer initHeadR(routeId_pointer tempRouteId);
+headp_pointer initHeadP(headr_pointer headR);
+headc_pointer initHeadC();
+node_pointer initNode();
 
+void pushHeadR(headh_pointer headH, headr_pointer headR);
+void pushHeadP(headr_pointer headR, headp_pointer headP);
+void pushHeadC(headp_pointer headP, headc_pointer headC);
+void pushNode(headc_pointer headC, node_pointer node);
+
+node_pointer read_lines(char* buffer);
+void readHeadH(headh_pointer headH);
+void newHeadC(headp_pointer headP, node_pointer node);
+
+
+int main(void) 
+{
 	routeId_pointer routeIdList = getRouteIdList();
-	//readRouteIdList(routeIdList);
-
 	getFolderpathList(routeIdList);
-	//readRouteIdList(routeIdList);
-
 	getFilepathList(routeIdList);
-	//readAllRouteIdList(routeIdList);
+	readAllRouteIdList(routeIdList);
 
+	headh_pointer headH = initHeadH();
+
+	routeId_pointer tempRouteId = routeIdList->next;
+	while (tempRouteId != NULL)
+	{
+		int routeId = tempRouteId->routeId;
+		//printf("%d", routeId);
+		headr_pointer headR = initHeadR(tempRouteId);
+		pushHeadR(headH, headR);
+		//printf("%d %d", headR->maxBusCnt, headR->maxStaSeq);
+		/*하나의 폴더 경로에 대해 탐색합니다.
+			: 새로운 routeId에 대해 프로세스를 시작합니다*/
+		folderpath_pointer tempFilePath = tempRouteId->down;
+		while (tempFilePath != NULL) 
+		{
+			/*하나의 파일 경로에 대해 탐색합니다.
+				: 새로운 datetime에 대해 프로세스를 시작합니다.*/
+			char* filepath = tempFilePath->filepathStr;
+			headp_pointer headP = initHeadP(headR);
+			pushHeadP(headR, headP);
+			FILE* inputFile = fopen(filepath, "r");
+			// 첫번째 줄 stationId 와 querytime
+			char firstLine[44];
+			fgets(firstLine, sizeof(firstLine), inputFile);
+			//printf("%s", firstLine);
+			// 두번째 줄 부터 마지막 줄
+			char buffer[85];
+			while (fgets(buffer, sizeof(buffer), inputFile) != NULL) 
+			{
+				//printf("%s", buffer);
+				node_pointer node = read_lines(buffer);
+				char* curPlateNo = node->plateNo;
+				//printf("%s\n", curPlateNo);
+				// plateNo 가 존재하는지 확인한다.
+				headc_pointer headC = headP->down_p;
+				int plateNoFlag = 0;
+				while (headC != NULL)
+				{
+					if (!strcmp(headC->plateNo, curPlateNo))
+					{
+						//headC 연결리스트에 같은 plateNo가 존재 할때
+						int stationExp = headC->stationExp;
+						int stationCur = node->stationSeq;
+						if (stationCur > stationExp)
+						{
+							// state #2
+							pushNode(headC, node);
+							headC->stationExp = stationCur;
+							plateNoFlag = 1;
+							break;
+						}
+						else if (stationCur == stationExp) {
+							plateNoFlag = 1;
+							break;
+						}
+					}
+					headC = headC->next_c;
+				}
+				if (plateNoFlag) continue;
+
+				//printf("headC를 새로 생성합니다.\n");
+				newHeadC(headP, node);
+				char buffer[85];
+			}
+			fclose(inputFile);
+			tempFilePath = tempFilePath->next;
+		}
+		tempRouteId = tempRouteId->next;
+	}
+	readHeadH(headH);
 	return 0;
 }
-
 
 routeId_pointer initRouteIdHeadptr(int routeId) {
 	routeId_pointer routeIdHeadPtr = malloc(sizeof(routeId_head));
@@ -74,7 +211,7 @@ routeId_pointer getRouteIdList() {
 	FILE* routeIdListTXT;
 	routeIdListTXT = fopen(folderPath, "r");
 	// routeId_pointer 형식의 변수 routeIdList를 초기화 합니다.
-	routeId_pointer routeIdList = initRouteIdHeadptr(NULL);
+	routeId_pointer routeIdList = initRouteIdHeadptr(0);
 
 	int routeId;
 	while (fscanf(routeIdListTXT, "%d", &routeId) != EOF) {
@@ -92,8 +229,7 @@ void readRouteIdList(routeId_pointer routeIdList) {
 	}
 	while (tempRouteId != NULL) {
 		int routeId = tempRouteId->routeId;
-		int rootPath = tempRouteId->rootpathStr;
-		printf("%d\t%s\n", routeId, rootPath);
+		printf("%d\n", routeId);
 		tempRouteId = tempRouteId->next;
 	}
 }
@@ -205,4 +341,182 @@ void getFilepathList(routeId_pointer routeIdList) {
 		listdir(tempRouteId);
 		tempRouteId = tempRouteId->next;
 	}
+}
+
+/*상원님함수*/
+node_pointer read_lines(char* buffer) {
+	node_pointer node = initNode();
+
+	char* strYear = strtok(buffer, "-");
+	int year = atoi(strYear);
+
+	char* strMonth = strtok(NULL, "-");
+	int month = atoi(strMonth);
+
+	char* strDay = strtok(NULL, "T");
+	int day = atoi(strDay);
+
+	char* strHour = strtok(NULL, ":");
+	int hour = atoi(strHour);
+
+	char* strMinute = strtok(NULL, ":");
+	int minute = atoi(strMinute);
+
+	char* strSecond = strtok(NULL, ".");
+	int second = atoi(strSecond);
+
+	char* _ = strtok(NULL, " ");
+	//printf("%s\n", _);
+
+	char* e_b = strtok(NULL, " ");
+	int endbus = atoi(e_b);
+
+	char* l_p = strtok(NULL, " ");
+	int lowplate = atoi(l_p);
+
+	char* plateNo = malloc(sizeof(char) * 10);
+	plateNo = strtok(NULL, " ");
+
+	char* p_t = strtok(NULL, " ");
+	int platetype = atoi(p_t);
+
+	char* r_s = strtok(NULL, " ");
+	int remainseat = atoi(r_s);
+
+	char* r_i = strtok(NULL, " ");
+	int routeId = atoi(r_i);
+
+	char* s_i = strtok(NULL, " ");
+	int stationId = atoi(s_i);
+	//printf("%d\n", stationId);
+
+	char* s_s = strtok(NULL, " ");
+	int stationSeq = atoi(s_s);
+
+	node->qtime.tm_year = year;
+	node->qtime.tm_mon = month;
+	node->qtime.tm_mday = day;
+	node->qtime.tm_hour = hour;
+	node->qtime.tm_min = minute;
+	node->qtime.tm_sec = second;
+	node->endBus = endbus;
+	node->lowPlate = lowplate;
+	strcpy(node->plateNo, plateNo);
+	node->plateType = platetype;
+	node->remainSeat = remainseat;
+	node->routeId = routeId;
+	node->stationId = stationId;
+	node->stationSeq = stationSeq;
+
+	return node;
+}
+
+headh_pointer initHeadH() {
+	headh_pointer tempHeadH_pointer = malloc(sizeof(_head_h));
+	tempHeadH_pointer->down_h = NULL;
+	tempHeadH_pointer->next_h = NULL;
+	return tempHeadH_pointer;
+}
+
+headr_pointer initHeadR(routeId_pointer tempRouteId) {
+	headr_pointer tempHeadR_pointer = malloc(sizeof(_head_r));
+	tempHeadR_pointer->down_r = NULL;
+	tempHeadR_pointer->next_r = NULL;
+	int routeId = tempRouteId->routeId;
+	tempHeadR_pointer->routeId = routeId;
+	tempHeadR_pointer->maxBusCnt = 10; // 운행시간 / 최소배차간격 tempRouteId->maxBusCnt
+	tempHeadR_pointer->maxStaSeq = 10; // 정류장정보 tempRouteId->maxStaSeq
+	return tempHeadR_pointer;
+}
+
+headp_pointer initHeadP(headr_pointer headR) {
+	headp_pointer tempHeadP_pointer = malloc(sizeof(_head_p));
+	tempHeadP_pointer->down_p = NULL;
+	tempHeadP_pointer->next_p = NULL;
+	node_pointer** dailyTimeTable;
+	int row = headR->maxStaSeq;
+	int col = headR->maxBusCnt;
+	dailyTimeTable = malloc(row * sizeof(node_pointer*));
+	for (int i = 0; i < row; i++)
+		dailyTimeTable[i] = malloc(col * sizeof(node_pointer));
+	tempHeadP_pointer->totalBus = 0;
+	//tempHeadP_pointer->qdate
+	return tempHeadP_pointer;
+}
+
+headc_pointer initHeadC() {
+	headc_pointer tempHeadC_pointer = malloc(sizeof(_head_c));
+	tempHeadC_pointer->down_c = NULL;
+	tempHeadC_pointer->next_c = NULL;
+	strcpy(tempHeadC_pointer->plateNo, "\0");
+	tempHeadC_pointer->busNoExp = 0;
+	tempHeadC_pointer->stationExp = 0;
+	return tempHeadC_pointer;
+}
+
+node_pointer initNode() {
+	node_pointer node = malloc(sizeof(bus_node));
+	node->next = NULL;
+	strcpy(node->plateNo, "\0");
+	return node;
+};
+
+void pushHeadR(headh_pointer headH, headr_pointer headR) {
+	headR->next_r = headH->down_h;
+	headH->down_h = headR;
+}
+
+void pushHeadP(headr_pointer headR, headp_pointer headP) {
+	headP->next_p = headR->down_r;
+	headR->down_r = headP;
+}
+
+void pushHeadC(headp_pointer headP, headc_pointer headC) {
+	headC->next_c = headP->down_p;
+	headP->down_p = headC;
+}
+
+void pushNode(headc_pointer headC, node_pointer node) {
+	node->next = headC->down_c;
+	headC->down_c = node;
+}
+
+void readHeadH(headh_pointer headH)
+{
+	headr_pointer tempHeadR = headH->down_h;
+	while (tempHeadR != NULL)
+	{
+		headr_pointer tempHeadP = tempHeadR->down_r;
+		while (tempHeadP != NULL)
+		{
+			headc_pointer tempHeadC = tempHeadP->down_r;
+			while (tempHeadC != NULL)
+			{
+				node_pointer tempNode = tempHeadC->down_c;
+				printf("%2d호차\t", tempHeadC->busNoExp);
+				printf("RouteId: %10d\t", tempNode->routeId);
+				printf("PlateNo: %s\n", tempNode->plateNo);
+				while (tempNode != NULL)
+				{
+					printf("%7d-", tempNode->qtime.tm_year);
+					printf("%2d-%2d", tempNode->qtime.tm_mon, tempNode->qtime.tm_mday);
+					printf("%3d:%2d\t", tempNode->qtime.tm_hour, tempNode->qtime.tm_min);
+					printf("%s", tempNode->plateNo);
+					printf("%4d\n", tempNode->stationSeq);
+					tempNode = tempNode->next;
+				}
+				tempHeadC = tempHeadC->next_c;
+			}
+			tempHeadP = tempHeadP->next_r;
+		}
+		tempHeadR = tempHeadR->next_r;
+	}
+}
+
+void newHeadC(headp_pointer headP, node_pointer node) {
+	headc_pointer newHeadC = initHeadC();
+	newHeadC->busNoExp = ++(headP->totalBus);
+	pushHeadC(headP, newHeadC);
+	strcpy(newHeadC->plateNo, node->plateNo);
+	pushNode(newHeadC, node);
 }
