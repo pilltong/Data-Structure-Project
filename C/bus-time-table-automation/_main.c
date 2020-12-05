@@ -4,6 +4,7 @@
 #include <string.h>
 #include <time.h>
 #include <io.h>
+#include <locale.h>
 
 typedef struct routeId_head* routeId_pointer;
 typedef struct folderpath_node* folderpath_pointer;
@@ -56,7 +57,7 @@ typedef struct _head_p {
 typedef struct _head_c {
 	headc_pointer next_c;
 	node_pointer down_c;
-	char plateNo[12];
+	char plateNo[14];
 	int busNoExp;
 	int stationExp;
 } _head_c;
@@ -70,7 +71,7 @@ typedef struct bus_node {
 	int stationSeq;
 	int endBus;
 	int lowPlate;
-	char plateNo[12];
+	char plateNo[14];
 	int plateType;
 	int remainSeat;
 	//link
@@ -99,18 +100,21 @@ headp_pointer initHeadP(headr_pointer headR);
 headc_pointer initHeadC();
 node_pointer initNode();
 
+
 void pushHeadR(headh_pointer headH, headr_pointer headR);
 void pushHeadP(headr_pointer headR, headp_pointer headP);
 void pushHeadC(headp_pointer headP, headc_pointer headC);
 void pushNode(headc_pointer headC, node_pointer node);
 
 node_pointer read_lines(char* buffer);
-void readHeadH(headh_pointer headH);
 void newHeadC(headp_pointer headP, node_pointer node);
+void readHeadH(headh_pointer headH);
 
 
 int main(void) 
 {
+	setlocale(LC_ALL, "ko_KR.UTF-8");
+
 	routeId_pointer routeIdList = getRouteIdList();
 	getFolderpathList(routeIdList);
 	getFilepathList(routeIdList);
@@ -365,7 +369,7 @@ node_pointer read_lines(char* buffer) {
 	char* strSecond = strtok(NULL, ".");
 	int second = atoi(strSecond);
 
-	char* _ = strtok(NULL, " ");
+	char* _ = strtok(NULL, " ");						// 12월 4일을 포함한 이후 데이터부터는 필요 없습니다. (microSeconds, timezone : .00000+09:00)
 	//printf("%s\n", _);
 
 	char* e_b = strtok(NULL, " ");
