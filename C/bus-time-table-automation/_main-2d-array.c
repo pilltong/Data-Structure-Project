@@ -3,11 +3,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <io.h>
-//#include <locale.h>
+#include <io.h> //
+#include <locale.h> // encoding
+#include <direct.h> // mkdir
+#include <errno.h> // error 출력
+
+#define ROW 500
+#define COL 500
 
 typedef struct routeId_head* routeId_pointer;
-typedef struct folderpath_node* folderpath_pointer;
+typedef struct filepath_node* filepath_pointer;
 typedef struct _head_h* headh_pointer;
 typedef struct _head_r* headr_pointer;
 typedef struct _head_p* headp_pointer;
@@ -17,16 +22,17 @@ typedef struct bus_node* node_pointer;
 // routeId struct
 typedef struct routeId_head {
 	routeId_pointer next;
-	folderpath_pointer down;
+	filepath_pointer down;
 	int routeId;
 	char rootpathStr[32];
 }routeId_head;
 
 // folderpath struct
-typedef struct folderpath_node {
+typedef struct filepath_node {
 	char filepathStr[47];
-	folderpath_pointer next;
-}folderpath_node;
+	char fileName[15];
+	filepath_pointer next;
+}filepath_node;
 
 //headheadheadhead
 typedef struct _head_h {
@@ -47,9 +53,10 @@ typedef struct _head_r {
 typedef struct _head_p {
 	headp_pointer next_p;
 	headc_pointer down_p;
-	node_pointer** dailyTimeTable;
+	//node_pointer** dailyTimeTable;
 	struct tm qdate;
 	int totalBus;
+	int totalStation;
 	//int routeId;
 } _head_p;
 
@@ -78,6 +85,8 @@ typedef struct bus_node {
 	node_pointer next;
 } bus_node;
 
+int main(void);
+
 /* routeId function*/
 routeId_pointer initRouteIdHeadptr(int routeId);
 void pushRouteId(routeId_pointer, int);
@@ -86,11 +95,11 @@ void readRouteIdList(routeId_pointer routeIdList);
 void readAllRouteIdList(routeId_pointer routeIdList);
 
 /*folderpath function*/
-folderpath_pointer initFolderpathPtr();
-void pushFolderpath(routeId_pointer, char*);
-void readFolderpathList(folderpath_pointer filepathListPointer);
+filepath_pointer initFilepath();
+void pushFolderpath(routeId_pointer, char*, char*);
+void readFolderpathList(filepath_pointer filepathListPointer);
 void getFolderpathList(routeId_pointer routeIdList);
-folderpath_pointer listdir(routeId_pointer);
+filepath_pointer listdir(routeId_pointer);
 void getFilepathList(routeId_pointer routeIdList);
 
 /* */
@@ -128,8 +137,8 @@ void updateHeadC(headc_pointer headC, headp_pointer headP, node_pointer node) {
 void readDailyTimeTable(node_pointer** dtt, headp_pointer headP) {
 	int row = 54;
 	int col = headP->totalBus;
-	for (int i = 1; i < row; i++) {
-		for (int j = 1; j < col; j++) {
+	for (int i = 1; i <= row+1; i++) {
+		for (int j = 1; j <= col+1; j++) {
 			if (dtt[i][j] == NULL) {
 				printf("88:88  ");
 			}
@@ -137,6 +146,79 @@ void readDailyTimeTable(node_pointer** dtt, headp_pointer headP) {
 				printf("%2d:%2d ", dtt[i][j]->qtime.tm_hour, dtt[i][j]->qtime.tm_min);
 		}
 		printf("\n");
+	}
+}
+
+void makeDir(char* folderPath) {
+	/*폴더 생성
+		https://shaeod.tistory.com/322, [C언어] 디렉토리 (폴더) 생성 함수 - mkdir
+	*/
+	int mkResult = _mkdir(folderPath);
+
+	if (mkResult == 0)
+	{
+		printf("폴더 생성 성공\n");
+	}
+	else if (mkResult == -1)
+	{
+		perror("폴더 생성 실패\n");
+		printf("errorno : %d", errno);
+	}
+}
+
+void writeDailyTimeTable(node_pointer** dtt, headr_pointer headR, headp_pointer headP, filepath_pointer file) {
+	char outputPath[34];
+	char folderPath[19];
+	char routeId[10];
+	char slash[] = { "/" };
+
+	strcpy(outputPath, "DATA/out/");
+	_itoa(headR->routeId, routeId, 10);
+	strcat(outputPath, routeId);
+	strcpy(folderPath, outputPath);
+
+	//makeDir(folderPath);
+	int mkResult = _mkdir(folderPath);
+
+	strcat(outputPath, slash);
+	strcat(outputPath, file->fileName);
+
+	FILE* outputFile = fopen(outputPath, "w");
+	int row = headP->totalStation;
+	int col = headP->totalBus;
+	for (int i = 1; i <= row; i++) {
+		for (int j = 1; j <= col; j++) {
+			if (dtt[i][j] == NULL) {
+				fprintf(outputFile, "-1,  ");
+			}
+			else
+				fprintf(outputFile, "%d:%d, ", dtt[i][j]->qtime.tm_hour, dtt[i][j]->qtime.tm_min);
+				//fprintf(outputFile, "%d, ", dtt[i][j]->qtime.tm_hour * 60 + dtt[i][j]->qtime.tm_min);
+		}
+		fprintf(outputFile, "\n");
+	}
+	fclose(outputFile);
+	return;
+}
+
+node_pointer** initDailyTimeTable(){
+	node_pointer** dailyTimeTable;
+	int row = ROW;
+	int col = COL;
+	dailyTimeTable = malloc(row * sizeof(node_pointer*));
+	for (int i = 0; i < row; i++)
+		dailyTimeTable[i] = calloc(col, sizeof(node_pointer));
+	return dailyTimeTable;
+}
+
+void freeDailyTimeTable(node_pointer** dailyTimeTable) {
+	int row = ROW;
+	int col = COL;
+	for (int i = 1; i < row; i++) {
+		for (int j = 1; j < col; j++) {
+			if (dailyTimeTable[i][j] == NULL) continue;
+			free(dailyTimeTable[i][j]);
+		}
 	}
 }
 
@@ -165,25 +247,17 @@ int main(void)
 
 		/*하나의 폴더 경로에 대해 탐색합니다.
 			: 새로운 routeId에 대해 프로세스를 시작합니다*/
-		folderpath_pointer tempFilePath = tempRouteId->down;
+		filepath_pointer tempFilePath = tempRouteId->down;
 		while (tempFilePath != NULL) 
 		{
 			/*하나의 파일 경로에 대해 탐색합니다.
 				: 새로운 datetime에 대해 프로세스를 시작합니다.*/
 			char* filepath = tempFilePath->filepathStr;
+			printf("%s\n", tempFilePath->fileName);
 			headp_pointer headP = initHeadP(headR);
 
 			/* node_pointer** initDailyTimeTable(){ */
-			node_pointer** dailyTimeTable;
-			if (1) {
-				int row = 100;//headR->maxStaSeq;
-				int col = 100;//headR->maxBusCnt;
-				dailyTimeTable = malloc(row * sizeof(node_pointer*));
-				for (int i = 0; i < row; i++)
-					dailyTimeTable[i] = calloc(col, sizeof(node_pointer));
-			}
-			//readDailyTimeTable(dailyTimeTable, headP);
-
+			node_pointer** dailyTimeTable = initDailyTimeTable();
 			pushHeadP(headR, headP);
 			FILE* inputFile = fopen(filepath, "r");
 			// 첫번째 줄 stationId 와 querytime
@@ -213,6 +287,8 @@ int main(void)
 							// state #2
 							//pushNode(headC, node);
 							headC->stationExp = stationCur; // 해당 plateNo를 관리하는 headC의 stationExp를 업데이트 한다.
+							if (headP->totalStation < stationCur)
+								headP->totalStation = stationCur;
 							addNode(node, dailyTimeTable, headC);
 						}
 						else if (stationCur == stationExp) {
@@ -240,7 +316,9 @@ int main(void)
 				//char buffer[85];
 			}
 			fclose(inputFile);
-			readDailyTimeTable(dailyTimeTable, headP);
+			//readDailyTimeTable(dailyTimeTable, headP);
+			writeDailyTimeTable(dailyTimeTable, headR, headP, tempFilePath);
+			freeDailyTimeTable(dailyTimeTable);
 			tempFilePath = tempFilePath->next;
 		}
 		tempRouteId = tempRouteId->next;
@@ -304,7 +382,7 @@ void readAllRouteIdList(routeId_pointer routeIdList) {
 	while (tempRouteId != NULL) {
 		int routeId = tempRouteId->routeId;
 		printf("%d\n", routeId);
-		folderpath_pointer tempRouteIdFolder = tempRouteId->down;
+		filepath_pointer tempRouteIdFolder = tempRouteId->down;
 		while (tempRouteIdFolder != NULL) {
 			char* filePath = tempRouteIdFolder->filepathStr;
 			printf("%s\n", filePath);
@@ -314,22 +392,23 @@ void readAllRouteIdList(routeId_pointer routeIdList) {
 	}
 }
 
-folderpath_pointer initFolderpathPtr() {
-	folderpath_pointer folderpathPtr = malloc(sizeof(folderpath_node));
+filepath_pointer initFilepath() {
+	filepath_pointer folderpathPtr = malloc(sizeof(filepath_node));
 	folderpathPtr->next = NULL;
 	return folderpathPtr;
 }
 
-void pushFolderpath(routeId_pointer tempRouteId, char* strRouteId) {
-	folderpath_pointer tempStringPtr = initFolderpathPtr();
+void pushFolderpath(routeId_pointer tempRouteId, char* strRouteId, char* fileName) {
+	filepath_pointer tempStringPtr = initFilepath();
 	strcpy(tempStringPtr->filepathStr, strRouteId);
+	strcpy(tempStringPtr->fileName, fileName);
 	tempStringPtr->next = tempRouteId->down;
 	tempRouteId->down = tempStringPtr;
 }
 
-void readFolderpathList(folderpath_pointer filepathListPointer)
+void readFolderpathList(filepath_pointer filepathListPointer)
 {
-	folderpath_pointer tempString = filepathListPointer->next;
+	filepath_pointer tempString = filepathListPointer->next;
 	if (tempString == NULL) {
 		printf("Stack UnderFlow");
 		return;
@@ -359,9 +438,9 @@ void getFolderpathList(routeId_pointer routeIdList) {
 	}
 }
 
-folderpath_pointer listdir(routeId_pointer tempRouteId) {
+filepath_pointer listdir(routeId_pointer tempRouteId) {
 	char* filepathStr = tempRouteId->rootpathStr;
-	folderpath_pointer routeIdPathHead = initFolderpathPtr();
+	filepath_pointer routeIdPathHead = initFilepath();
 
 	char* extension = "/*.txt*";
 	char* slash = "/";
@@ -386,10 +465,13 @@ folderpath_pointer listdir(routeId_pointer tempRouteId) {
 	while (fdResult != -1) {
 		//printf("파일명 : %s, 크기:%d\n", findData.name, findData.size);
 		char filePath[47];
+		char fileName[15];
 		strcpy(filePath, inputFolderPath);
 		strcat(filePath, findData.name);
+		strcpy(fileName, findData.name);
+		//printf("%s\n", findData.name);
 		//printf("%s\n", filePath);
-		pushFolderpath(tempRouteId, filePath);
+		pushFolderpath(tempRouteId, filePath, fileName);
 		fdResult = _findnext(handle, &findData);
 	}
 	_findclose(handle);
@@ -501,6 +583,7 @@ headp_pointer initHeadP(headr_pointer headR) {
 	for (int i = 0; i < row; i++)
 		dailyTimeTable[i] = malloc(col * sizeof(node_pointer));
 	tempHeadP_pointer->totalBus = 0;
+	tempHeadP_pointer->totalStation = 0;
 	//tempHeadP_pointer->qdate
 	return tempHeadP_pointer;
 }
