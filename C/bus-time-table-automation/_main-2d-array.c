@@ -23,11 +23,14 @@ typedef struct bus_node* node_pointer;
 typedef struct routeId_head {
 	routeId_pointer next;
 	filepath_pointer down;
+	char routeName[10];
 	int routeId;
+	int expAlloc;
+	int totalStation;
 	char rootpathStr[32];
 }routeId_head;
 
-// folderpath struct
+// filepath struct
 typedef struct filepath_node {
 	char filepathStr[47];
 	char fileName[15];
@@ -88,7 +91,7 @@ typedef struct bus_node {
 int main(void);
 
 /* routeId function*/
-routeId_pointer initRouteIdHeadptr(int routeId);
+routeId_pointer initRouteIdHead(int routeId);
 void pushRouteId(routeId_pointer, int);
 routeId_pointer getRouteIdList();
 void readRouteIdList(routeId_pointer routeIdList);
@@ -96,7 +99,7 @@ void readAllRouteIdList(routeId_pointer routeIdList);
 
 /*folderpath function*/
 filepath_pointer initFilepath();
-void pushFolderpath(routeId_pointer, char*, char*);
+void pushFilepath(routeId_pointer, char*, char*);
 void readFolderpathList(filepath_pointer filepathListPointer);
 void getFolderpathList(routeId_pointer routeIdList);
 filepath_pointer listdir(routeId_pointer);
@@ -166,7 +169,7 @@ void makeDir(char* folderPath) {
 	}
 }
 
-void writeDailyTimeTable(node_pointer** dtt, headr_pointer headR, headp_pointer headP, filepath_pointer file) {
+void writeDailyTimeTable(node_pointer** dtt, headr_pointer headR, headp_pointer headP, filepath_pointer file, routeId_pointer tempRouteId) {
 	char outputPath[34];
 	char folderPath[19];
 	char routeId[10];
@@ -184,8 +187,10 @@ void writeDailyTimeTable(node_pointer** dtt, headr_pointer headR, headp_pointer 
 	strcat(outputPath, file->fileName);
 
 	FILE* outputFile = fopen(outputPath, "w");
-	int row = headP->totalStation;
+	int row = tempRouteId->totalStation;
 	int col = headP->totalBus;
+	fprintf(outputFile, "%s %d ", tempRouteId->routeName, tempRouteId->routeId);
+	fprintf(outputFile, "%d %d\n", row, col);
 	for (int i = 1; i <= row; i++) {
 		for (int j = 1; j <= col; j++) {
 			if (dtt[i][j] == NULL) {
@@ -223,9 +228,27 @@ void freeDailyTimeTable(node_pointer** dailyTimeTable) {
 }
 
 
+FILE* openStaFile(int routeId) {
+	char folderPath[29] = { "DATA/station/" };
+	char routeIdStirng[10];
+	_itoa(routeId, routeIdStirng, 10);
+	strcat(folderPath, routeIdStirng);
+	char extension[] = { ".txt" };
+	strcat(folderPath, extension);
+	//printf("%s", folderPath);
+
+	FILE* staInfoFile = fopen(folderPath, "r");
+
+	return staInfoFile;
+}
+
+void function() {
+
+}
+
 int main(void) 
 {
-	//setlocale(LC_ALL, "ko_KR.UTF-8");
+	setlocale(LC_ALL, "ko-KR.UTF-8");
 
 	routeId_pointer routeIdList = getRouteIdList();
 	getFolderpathList(routeIdList);
@@ -317,7 +340,7 @@ int main(void)
 			}
 			fclose(inputFile);
 			//readDailyTimeTable(dailyTimeTable, headP);
-			writeDailyTimeTable(dailyTimeTable, headR, headP, tempFilePath);
+			writeDailyTimeTable(dailyTimeTable, headR, headP, tempFilePath, tempRouteId);
 			freeDailyTimeTable(dailyTimeTable);
 			tempFilePath = tempFilePath->next;
 		}
@@ -328,18 +351,38 @@ int main(void)
 	return 0;
 }
 
-routeId_pointer initRouteIdHeadptr(int routeId) {
+routeId_pointer initRouteIdHead(int routeId) {
 	routeId_pointer routeIdHeadPtr = malloc(sizeof(routeId_head));
 	routeIdHeadPtr->next = NULL;
 	routeIdHeadPtr->down = NULL;
-	routeIdHeadPtr->routeId = routeId;
+
+	if (routeId) {
+		FILE* staFile = openStaFile(routeId);
+		char firstLine[30];
+		fgets(firstLine, sizeof(firstLine), staFile);
+
+		char* routeName = strtok(firstLine, " ");
+		char* strRouteId = strtok(NULL, " ");
+		char* strexpAlloc = strtok(NULL, " ");
+		int expAlloc = atoi(strexpAlloc);
+		char* strTotalStation = strtok(NULL, " ");
+		int totalStation = atoi(strTotalStation);
+
+		strcpy(routeIdHeadPtr->routeName, routeName);
+		routeIdHeadPtr->routeId = routeId;
+		routeIdHeadPtr->expAlloc = expAlloc;
+		routeIdHeadPtr->totalStation = totalStation;
+
+		fclose(staFile);
+	}
+
 	return routeIdHeadPtr;
 }
 
 void pushRouteId(routeId_pointer routeIdList, int routeId) {
 	// Stack 구조로 routeIdList를 구현합니다.
 	// routeId_head를 초기화 합니다.
-	routeId_pointer routeIdPtr = initRouteIdHeadptr(routeId);
+	routeId_pointer routeIdPtr = initRouteIdHead(routeId);
 
 	routeIdPtr->next = routeIdList->next;
 	routeIdList->next = routeIdPtr;
@@ -350,7 +393,7 @@ routeId_pointer getRouteIdList() {
 	FILE* routeIdListTXT;
 	routeIdListTXT = fopen(folderPath, "r");
 	// routeId_pointer 형식의 변수 routeIdList를 초기화 합니다.
-	routeId_pointer routeIdList = initRouteIdHeadptr(0);
+	routeId_pointer routeIdList = initRouteIdHead(0);
 
 	int routeId;
 	while (fscanf(routeIdListTXT, "%d", &routeId) != EOF) {
@@ -398,7 +441,7 @@ filepath_pointer initFilepath() {
 	return folderpathPtr;
 }
 
-void pushFolderpath(routeId_pointer tempRouteId, char* strRouteId, char* fileName) {
+void pushFilepath(routeId_pointer tempRouteId, char* strRouteId, char* fileName) {
 	filepath_pointer tempStringPtr = initFilepath();
 	strcpy(tempStringPtr->filepathStr, strRouteId);
 	strcpy(tempStringPtr->fileName, fileName);
@@ -471,7 +514,7 @@ filepath_pointer listdir(routeId_pointer tempRouteId) {
 		strcpy(fileName, findData.name);
 		//printf("%s\n", findData.name);
 		//printf("%s\n", filePath);
-		pushFolderpath(tempRouteId, filePath, fileName);
+		pushFilepath(tempRouteId, filePath, fileName);
 		fdResult = _findnext(handle, &findData);
 	}
 	_findclose(handle);
