@@ -34,6 +34,7 @@ typedef struct routeId_head {
 typedef struct filepath_node {
 	char filepathStr[47];
 	char fileName[15];
+	char outpathStr[34];
 	filepath_pointer next;
 }filepath_node;
 
@@ -89,6 +90,7 @@ typedef struct bus_node {
 } bus_node;
 
 int main(void);
+int diff = 40;
 
 /* routeId function*/
 routeId_pointer initRouteIdHead(int routeId);
@@ -179,12 +181,14 @@ void writeDailyTimeTable(node_pointer** dtt, headr_pointer headR, headp_pointer 
 	_itoa(headR->routeId, routeId, 10);
 	strcat(outputPath, routeId);
 	strcpy(folderPath, outputPath);
+	
 
 	//makeDir(folderPath);
 	int mkResult = _mkdir(folderPath);
 
 	strcat(outputPath, slash);
 	strcat(outputPath, file->fileName);
+	strcpy(file->outpathStr, outputPath);
 
 	FILE* outputFile = fopen(outputPath, "w");
 	int row = tempRouteId->totalStation;
@@ -197,8 +201,8 @@ void writeDailyTimeTable(node_pointer** dtt, headr_pointer headR, headp_pointer 
 				fprintf(outputFile, "-1,  ");
 			}
 			else
-				fprintf(outputFile, "%d:%d, ", dtt[i][j]->qtime.tm_hour, dtt[i][j]->qtime.tm_min);
-				//fprintf(outputFile, "%d, ", dtt[i][j]->qtime.tm_hour * 60 + dtt[i][j]->qtime.tm_min);
+				//fprintf(outputFile, "%d:%d, ", dtt[i][j]->qtime.tm_hour, dtt[i][j]->qtime.tm_min);
+				fprintf(outputFile, "%d, ", dtt[i][j]->qtime.tm_hour * 60 + dtt[i][j]->qtime.tm_min);
 		}
 		fprintf(outputFile, "\n");
 	}
@@ -242,111 +246,156 @@ FILE* openStaFile(int routeId) {
 	return staInfoFile;
 }
 
-void function() {
+void scanFile(FILE* inputFile, headp_pointer headP ,node_pointer** dailyTimeTable) {
+	char buffer[85];
+	while (fgets(buffer, sizeof(buffer), inputFile) != NULL)
+	{
+		node_pointer node = read_lines(buffer);
+		char* curPlateNo = node->plateNo;
+		// plateNo 가 존재하는지 확인한다.
+		headc_pointer headC = headP->down_p;
+		int plateNoFlag = 0;
+		while (headC != NULL)
+		{
+			if (!strcmp(headC->plateNo, curPlateNo))
+			{
+				// headC 연결리스트에 같은 plateNo가 "존재 할때"
+				int stationExp = headC->stationExp;
+				int stationCur = node->stationSeq;									// ROW
+				if (stationCur + diff > stationExp) {
+					// stationExp보다 "큰" stationSeq가 들어왔을때-다음 정류소를 지났을때-headC를 업데이트 하고 노드를 추가한다.
+					// state #2
+					headC->stationExp = stationCur; // 해당 plateNo를 관리하는 headC의 stationExp를 업데이트 한다.
+					if (headP->totalStation < stationCur)
+						headP->totalStation = stationCur;
+					addNode(node, dailyTimeTable, headC);
+				}
+				else if (stationCur == stationExp) {
+					// stationExp보다 "같은" stationSeq가 들어왔을때-다음 정류소를 지나지 못했을때-node의 메모리를 해제한다.
+					free(node);
+				}
+				else {
+					updateHeadC(headC, headP, node);
+					// dailyTimeTable에 Node를 추가한다: dailyTimeTable[stationExp][busNoExp] = node;
+					addNode(node, dailyTimeTable, headC);
+				}
+				plateNoFlag = 1;
+				break;
+			}
+			else
+				headC = headC->next_c;
+		}
+		if (plateNoFlag) continue;
 
+		/* headC 연결리스트에 같은 plateNo가 "존재 하지 않을때" */
+		//printf("headC를 새로 생성합니다.\n");
+		headc_pointer _headC = newHeadC(headP, node); // newHeadC
+		// dailyTimeTable에 Node를 추가한다: dailyTimeTable[stationExp][busNoExp] = node;
+		addNode(node, dailyTimeTable, _headC);
+		//char buffer[85];
+	}
 }
+
+void scanFolder(routeId_pointer tempRouteId, headr_pointer headR)
+{
+	/*하나의 폴더 경로에 대해 탐색합니다.
+			: 새로운 routeId에 대해 프로세스를 시작합니다*/
+	filepath_pointer tempFilePath = tempRouteId->down;
+	while (tempFilePath != NULL)
+	{
+		/*하나의 파일 경로에 대해 탐색합니다.
+			: 새로운 datetime에 대해 프로세스를 시작합니다.*/
+		char* filepath = tempFilePath->filepathStr;
+		headp_pointer headP = initHeadP(headR);
+
+		node_pointer** dailyTimeTable = initDailyTimeTable();
+		pushHeadP(headR, headP);
+		FILE* inputFile = fopen(filepath, "r");
+
+		// 첫번째 줄 stationId 와 querytime
+		char firstLine[44];
+		fgets(firstLine, sizeof(firstLine), inputFile);
+
+		// 두번째 줄 부터 마지막 줄
+		scanFile(inputFile, headP, dailyTimeTable);
+
+		fclose(inputFile);
+		writeDailyTimeTable(dailyTimeTable, headR, headP, tempFilePath, tempRouteId);
+		freeDailyTimeTable(dailyTimeTable);
+		tempFilePath = tempFilePath->next;
+	}
+	
+}
+
+void scanRouteId(routeId_pointer routeIdList, headh_pointer headH) {
+	routeId_pointer tempRouteId = routeIdList->next;
+	while (tempRouteId != NULL)
+	{
+		int routeId = tempRouteId->routeId;
+		headr_pointer headR = initHeadR(tempRouteId);
+		pushHeadR(headH, headR);
+
+		scanFolder(tempRouteId, headR);
+
+		tempRouteId = tempRouteId->next;
+	}
+}
+
+void function2(filepath_pointer outputFile)
+{
+	//node_pointer** dailyTimeTable = initDailyTimeTable();
+	FILE* inputFile = fopen(outputFile->outpathStr, "r");
+
+	int plateNo, routeId, totalStation, totalBus;
+	// 첫번째 줄 9003 204000046 55 49
+	fscanf(inputFile, "%d %d %d %d", &plateNo, &routeId, &totalStation, &totalBus);
+	//printf("%d %d %d %d", plateNo, routeId, totalStation, totalBus);
+
+	// 이전에 사용한 dailytimeTable은 node_pointer를 원소로 갖기 때문에 비효율적
+	// int** 2차원 배열을 생성
+	// flag을 저장하는 2차원 배열을 상위 헤드에 생성												
+	
+	return;
+}
+
+void function1(routeId_pointer routeIdList)
+{
+	routeId_pointer outputRouteId = routeIdList->next;
+	while (outputRouteId)
+	{
+		filepath_pointer outputFile = outputRouteId->down;
+		while (outputFile)
+		{
+			printf("%s\n", outputFile->outpathStr);
+
+			function2(outputFile);
+
+			outputFile = outputFile->next;
+		}
+		outputRouteId = outputRouteId->next;
+	}
+}
+
 
 int main(void) 
 {
 	setlocale(LC_ALL, "ko-KR.UTF-8");
-
+	
+	//
 	routeId_pointer routeIdList = getRouteIdList();
 	getFolderpathList(routeIdList);
 	getFilepathList(routeIdList);
 	readAllRouteIdList(routeIdList);
 
-	headh_pointer headH;
-	headH = initHeadH();
+	//
+	headh_pointer headH = initHeadH();
+	scanRouteId(routeIdList, headH);
+	
+	//
+	function1(routeIdList);
 
-	routeId_pointer tempRouteId = routeIdList->next;
-	while (tempRouteId != NULL)
-	{
-		int routeId = tempRouteId->routeId;
-		//printf("%d", routeId);
-		headr_pointer headR;
-		headR = initHeadR(tempRouteId);
-		pushHeadR(headH, headR);
-		//printf("%d %d", headR->maxBusCnt, headR->maxStaSeq);
 
-		/*하나의 폴더 경로에 대해 탐색합니다.
-			: 새로운 routeId에 대해 프로세스를 시작합니다*/
-		filepath_pointer tempFilePath = tempRouteId->down;
-		while (tempFilePath != NULL) 
-		{
-			/*하나의 파일 경로에 대해 탐색합니다.
-				: 새로운 datetime에 대해 프로세스를 시작합니다.*/
-			char* filepath = tempFilePath->filepathStr;
-			printf("%s\n", tempFilePath->fileName);
-			headp_pointer headP = initHeadP(headR);
 
-			/* node_pointer** initDailyTimeTable(){ */
-			node_pointer** dailyTimeTable = initDailyTimeTable();
-			pushHeadP(headR, headP);
-			FILE* inputFile = fopen(filepath, "r");
-			// 첫번째 줄 stationId 와 querytime
-			char firstLine[44];
-			fgets(firstLine, sizeof(firstLine), inputFile);
-			//printf("%s", firstLine);
-			// 두번째 줄 부터 마지막 줄
-			char buffer[85];
-			while (fgets(buffer, sizeof(buffer), inputFile) != NULL) 
-			{
-				//printf("%s", buffer);
-				node_pointer node = read_lines(buffer);
-				char* curPlateNo = node->plateNo;
-				//printf("%s\n", curPlateNo);
-				// plateNo 가 존재하는지 확인한다.
-				headc_pointer headC = headP->down_p;
-				int plateNoFlag = 0;
-				while (headC != NULL)
-				{
-					if (!strcmp(headC->plateNo, curPlateNo))
-					{
-						/* headC 연결리스트에 같은 plateNo가 "존재 할때" */
-						int stationExp = headC->stationExp;									
-						int stationCur = node->stationSeq;									// ROW
-						if (stationCur > stationExp){
-							/* stationExp보다 "큰" stationSeq가 들어왔을때-다음 정류소를 지났을때-headC를 업데이트 하고 노드를 추가한다.*/
-							// state #2
-							//pushNode(headC, node);
-							headC->stationExp = stationCur; // 해당 plateNo를 관리하는 headC의 stationExp를 업데이트 한다.
-							if (headP->totalStation < stationCur)
-								headP->totalStation = stationCur;
-							addNode(node, dailyTimeTable, headC);
-						}
-						else if (stationCur == stationExp) {
-							/* stationExp보다 "같은" stationSeq가 들어왔을때-다음 정류소를 지나지 못했을때-node의 메모리를 해제한다.*/
-							free(node);
-						}
-						else {
-							updateHeadC(headC, headP, node);
-							// dailyTimeTable에 Node를 추가한다: dailyTimeTable[stationExp][busNoExp] = node;
-							addNode(node, dailyTimeTable, headC);
-						}
-						plateNoFlag = 1;
-						break;
-					}
-					else 
-						headC = headC->next_c;
-				}
-				if (plateNoFlag) continue;
-
-				/* headC 연결리스트에 같은 plateNo가 "존재 하지 않을때" */
-				//printf("headC를 새로 생성합니다.\n");
-				headc_pointer _headC = newHeadC(headP, node); // newHeadC
-				// dailyTimeTable에 Node를 추가한다: dailyTimeTable[stationExp][busNoExp] = node;
-				addNode(node, dailyTimeTable, _headC);
-				//char buffer[85];
-			}
-			fclose(inputFile);
-			//readDailyTimeTable(dailyTimeTable, headP);
-			writeDailyTimeTable(dailyTimeTable, headR, headP, tempFilePath, tempRouteId);
-			freeDailyTimeTable(dailyTimeTable);
-			tempFilePath = tempFilePath->next;
-		}
-		tempRouteId = tempRouteId->next;
-	}
-	//readHeadH(headH);
 	
 	return 0;
 }
@@ -548,10 +597,10 @@ node_pointer read_lines(char* buffer) {
 	char* strMinute = strtok(NULL, ":");
 	int minute = atoi(strMinute);
 
-	char* strSecond = strtok(NULL, ".");
+	char* strSecond = strtok(NULL, " ");				// microSeconds,  timezone을 포함하면 strSecond의 구분자를 공백(" ")에서 온점(".")으로 변경하세요.
 	int second = atoi(strSecond);
 
-	char* _ = strtok(NULL, " ");						// 출력양식 수정으로 12월 4일을 포함한 이후 데이터부터는 필요 없습니다. (microSeconds, timezone을 포함하지 않습니다. [.00000+09:00])
+	//char* _ = strtok(NULL, " ");						// 출력양식 수정으로 12월 4일을 포함한 이후 데이터부터는 필요 없습니다. (microSeconds, timezone을 포함하지 않습니다. [.00000+09:00])
 	//printf("%s\n", _);
 
 	char* e_b = strtok(NULL, " ");
