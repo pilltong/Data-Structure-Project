@@ -219,7 +219,7 @@ void printIntDtt(int totalStation, int totalBus, int** dtt)
 		{
 			if (dtt[i][j] == NULL)
 			{
-				printf("0 ");
+				printf("-1 ");
 			}
 			else
 			{
@@ -299,9 +299,13 @@ void averageFunction(headd_pointer topD)
 		{
 			for (int j = 0; j < headD->totalBus; j++)
 			{
-				if (headD->flagTable[i][j] != 0)
+				if (headD->flagTable[i][j] > 0)
 				{
 					headD->sumTable[i][j] /= headD->flagTable[i][j];
+				}
+				else if (headD->flagTable[i][j] == 0)
+				{
+					headD->sumTable[i][j] = -1;
 				}
 			}
 		}
@@ -368,7 +372,15 @@ void writeAverageTimeTable(headd_pointer topD, headd_pointer headD)
 		{
 			for (int j = 0; j < headD->totalBus; j++)
 			{
-				fprintf(outputFile, "%d, ", headD->sumTable[i][j]);
+				if (headD->sumTable[i][j] >= 0)
+				{
+					//fprintf(outputFile, "%d, ", headD->sumTable[i][j]);
+					fprintf(outputFile, "%d:%d, ", headD->sumTable[i][j] / 60, headD->sumTable[i][j] % 60);
+				}
+				else
+				{
+					fprintf(outputFile, "-1, ");
+				}
 			}
 			fprintf(outputFile, "\n");
 		}
