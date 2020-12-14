@@ -94,6 +94,7 @@ typedef struct bus_node {
 //output struct
 typedef struct _head_d {
 	int routeId;
+	int totalStation;
 	int totalBus;
 	int** flagTable;
 	int** sumTable;
@@ -156,6 +157,7 @@ void scanFile(FILE* inputFile, headp_pointer headP, node_pointer** dailyTimeTabl
 void scanFolder(routeId_pointer tempRouteId, headr_pointer headR);
 void scanRouteId(routeId_pointer routeIdList, headh_pointer headH);
 int** initIntDtt(int totalStation, int totalBus);
+void pushHeadDtoHeadD(headd_pointer topD, headd_pointer headD);
 
 
 headd_pointer initHeadD()
@@ -203,6 +205,8 @@ headd_pointer returnHeadD(headd_pointer topD, int totalStation, int totalBus)
 		newHeadD->flagTable = initIntDtt(totalStation, totalBus);
 		newHeadD->sumTable = initIntDtt(totalStation, totalBus);
 		newHeadD->totalBus = totalBus;
+		newHeadD->totalStation = totalStation;
+		pushHeadDtoHeadD(topD, newHeadD);
 		return newHeadD;
 	}
 }
@@ -233,7 +237,13 @@ void pushDttToHeadD(headd_pointer headD, dtt_pointer dttPointer)
 	headD->down = dttPointer;
 }
 
-void averageFunction3(FILE* inputFile, int totalStation, int totalBus, dtt_pointer dttPointer, headd_pointer headD)
+void pushHeadDtoHeadD(headd_pointer topD, headd_pointer headD)
+{
+	headD->next = topD->next;
+	topD->next = headD;
+}
+
+void sumFunction3(FILE* inputFile, int totalStation, int totalBus, dtt_pointer dttPointer, headd_pointer headD)
 {
 	for (int i = 0; i < totalStation; i++)
 	{
@@ -251,7 +261,7 @@ void averageFunction3(FILE* inputFile, int totalStation, int totalBus, dtt_point
 	}
 }
 
-void averageFunction2(filepath_pointer outputFile, headd_pointer topD)
+void sumFunction2(filepath_pointer outputFile, headd_pointer topD)
 {
 	//node_pointer** dailyTimeTable = initDailyTimeTable();
 	FILE* inputFile = fopen(outputFile->outpathStr, "r");
@@ -269,7 +279,7 @@ void averageFunction2(filepath_pointer outputFile, headd_pointer topD)
 	// 이전에 사용한 dailytimeTable은 node_pointer를 원소로 갖기 때문에 비효율적
 	// int** 2차원 배열을 생성하고, flag 시간의 합(sum)을 저장하는 2차원 배열을 상위 헤드에 생성
 	dtt_pointer dttPointer = initDttPointer(totalStation, totalBus);
-	averageFunction3(inputFile, totalStation, totalBus, dttPointer, headD);
+	sumFunction3(inputFile, totalStation, totalBus, dttPointer, headD);
 
 	/*printIntDtt(totalStation, totalBus, dttPointer->dailyTimeTable);
 	printIntDtt(totalStation, totalBus, headD->flagTable);
@@ -279,24 +289,113 @@ void averageFunction2(filepath_pointer outputFile, headd_pointer topD)
 	return;
 }
 
-void averageFunction1(routeId_pointer routeIdList)
+void averageFunction(headd_pointer topD)
+{
+	headd_pointer headD = topD->next;
+	while (headD)
+	{
+		
+		for (int i = 0; i < headD->totalStation; i++)
+		{
+			for (int j = 0; j < headD->totalBus; j++)
+			{
+				if (headD->flagTable[i][j] != 0)
+				{
+					headD->sumTable[i][j] /= headD->flagTable[i][j];
+				}
+			}
+		}
+
+		//print함수를 파일 출력함수로 변환
+		//printIntDtt(headD->totalStation, headD->totalBus, headD->sumTable);
+
+		headD = headD->next;
+	}
+}
+
+void sumFunction1(filepath_pointer outputFile, routeId_pointer outputRouteId, headd_pointer topD)
+{
+	topD->routeId = outputRouteId->routeId;
+	while (outputFile)
+	{
+		//printf("%s\n", outputFile->outpathStr);
+		sumFunction2(outputFile, topD);
+
+		outputFile = outputFile->next;
+	}
+}
+
+char* makeFinalPath(headd_pointer topD, headd_pointer headD)
+{
+	char finalPath[34];
+	char routeId[10];
+	char ctotalBus[10];
+
+	strcpy(finalPath, "DATA/final/");
+	_mkdir(finalPath);
+
+	_itoa(topD->routeId, routeId, 10);
+	strcat(finalPath, routeId);
+	_mkdir(finalPath);
+
+	strcat(finalPath, "/_");
+	_itoa(headD->totalBus, ctotalBus, 10);
+	strcat(finalPath, ctotalBus);
+	strcat(finalPath, ".txt");
+
+	return finalPath;
+}
+
+FILE* openFinalFile(headd_pointer topD, headd_pointer headD)
+{
+	char* finalPath[34];
+	strcpy(finalPath, makeFinalPath(topD, headD));
+	printf("%s\n", finalPath);
+
+	FILE* outputFile = fopen(finalPath, "w");
+	return outputFile;
+}
+
+void writeAverageTimeTable(headd_pointer topD, headd_pointer headD)
+{
+	while (headD)
+	{
+		FILE* outputFile = openFinalFile(topD, headD);
+
+		fprintf(outputFile, "%d %d %d\n", topD->routeId, headD->totalStation, headD->totalBus);
+
+		for (int i = 0; i < headD->totalStation; i++)
+		{
+			for (int j = 0; j < headD->totalBus; j++)
+			{
+				fprintf(outputFile, "%d, ", headD->sumTable[i][j]);
+			}
+			fprintf(outputFile, "\n");
+		}
+
+		headD = headD->next;
+	}
+}
+
+void makeAverage(routeId_pointer routeIdList)
 {
 	routeId_pointer outputRouteId = routeIdList->next;
 	while (outputRouteId)
 	{
 		filepath_pointer outputFile = outputRouteId->down;
 		headd_pointer topD = initHeadD();
-		topD->routeId = outputRouteId->routeId;
-		while (outputFile)
-		{
-			printf("%s\n", outputFile->outpathStr);
+		
+		sumFunction1(outputFile, outputRouteId, topD);
 
-			averageFunction2(outputFile, topD);
+		averageFunction(topD);
 
-			outputFile = outputFile->next;
-		}
+		headd_pointer headD = topD->next;
+		writeAverageTimeTable(topD, headD);
+		//printf("%d\n", topD->routeId);
+		
 		outputRouteId = outputRouteId->next;
 	}
+
 }
 
 
@@ -315,7 +414,7 @@ int main(void)
 	scanRouteId(routeIdList, headH);
 	
 	//평균
-	averageFunction1(routeIdList);
+	makeAverage(routeIdList);
 
 
 
@@ -808,7 +907,7 @@ FILE* openStaFile(int routeId) {
 
 void scanFile(FILE* inputFile, headp_pointer headP, node_pointer** dailyTimeTable) {
 	char buffer[85];
-	diff = 0.9 * headP->totalStation;
+	
 	while (fgets(buffer, sizeof(buffer), inputFile) != NULL)
 	{
 		node_pointer node = read_lines(buffer);
@@ -816,10 +915,12 @@ void scanFile(FILE* inputFile, headp_pointer headP, node_pointer** dailyTimeTabl
 		// plateNo 가 존재하는지 확인한다.
 		headc_pointer headC = headP->down_p;
 		int plateNoFlag = 0;
+		diff = 0.9 * headP->totalStation;
 		while (headC != NULL)
 		{
 			if (!strcmp(headC->plateNo, curPlateNo))
 			{
+				
 				// headC 연결리스트에 같은 plateNo가 "존재 할때"
 				int stationExp = headC->stationExp;
 				int stationCur = node->stationSeq;									// ROW
