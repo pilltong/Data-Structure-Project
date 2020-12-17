@@ -1,25 +1,51 @@
 #include <malloc.h>
 #include <stdio.h>
 #include <stdlib.h>
-#define MAX_TERMS 1000
+#include <string.h>
+#include <time.h>
 #define TOTAL_BUS 100
+int route;
+typedef struct _head_c* headc_pointer;
+typedef struct _head_c {
+    //data
+    int busNo;
+    char* plateNo;
+    int stationExp;
+    //link
+    headc_pointer next_c;
+} _head_c;
+typedef struct bus_node* node_pointer;
+typedef struct bus_node {
+    //data
+    struct tm qtime;
+    int routeId;
+    int stationId;
+    int stationSeq;
+    int endBus;
+    int lowPlate;
+    char* plateNo;
+    int plateType;
+    int remainSeat;
+    //link
+    node_pointer next;
+} bus_node;
 
-typedef struct listNode* listPointer;
-typedef struct {
-    int time;
-    int busName;
-    int station;
-    listPointer link;
-} listNode;
-
-typedef struct {
-    int dataTime;
-    int busName;
-    int station;
+typedef struct data {
+    struct tm qtime;
+    int routeId;
+    int stationId;
+    int stationSeq;
+    int endBus;
+    int lowPlate;
+    char* plateNo;
+    int plateType;
+    int remainSeat;
 } data;
-listNode* head[TOTAL_BUS];
-listNode* tail[TOTAL_BUS];
+_head_c* head[TOTAL_BUS];
+bus_node* tail[TOTAL_BUS];
 
+struct tm read_first_line(FILE* f);
+data data_read(FILE* f);
 int main() {
     int i, j, k, a;
     int listNum = 0;
@@ -27,104 +53,206 @@ int main() {
     int nth = 1;
     FILE* fp;
     data temp;
+    struct tm x;
 
-    //head ¸¸µé±â
-    //listNode** head = (listNode**)malloc(sizeof(listNode*) * TOTAL_BUS);
-    //listNode** tail = (listNode**)malloc(sizeof(listNode*) * TOTAL_BUS);
-   
+
     for (i = 0; i < TOTAL_BUS; i++) {
-    
-        head[i] = malloc(sizeof(listNode));
-    
-        head[i]->station = 0; //expectation°ª 0À¸·Î ÃÊ±âÈ­
-        tail[i] = malloc(sizeof(listNode));
+
+        head[i] = malloc(sizeof(_head_c));
+
+        head[i]->stationExp = 0; //expectationê°’ 0ìœ¼ë¡œ ì´ˆê¸°í™”
+        tail[i] = malloc(sizeof(bus_node));
     }
 
-    fp = fopen("A.txt", "r");
+    
+
+    fp = fopen("in-2020-11-28.txt", "r");
     if (fp == NULL) {
         printf("Could not open file");
     }
 
-
-
+    x = read_first_line(fp);
+    
+    printf("%d",route);
+    
+    
     while (!feof(fp)) {
-        fscanf(fp, "%d %d %d", &temp.dataTime, &temp.busName, &temp.station);
+        temp=data_read(fp);
 
-        if (listNum == 0) {/*Ã¹ µ¥ÀÌÅÍ*/
-            tail[listNum] = head[listNum];
-            head[listNum]->busName = temp.busName;
-            head[listNum]->station = temp.station;//exp°ª ¾÷µ¥ÀÌÆ®
-            head[listNum]->time = listNum + 1;
-            /*list¿¡ Ãß°¡*/
-            listNode* tempNode = (listNode*)malloc(sizeof(listNode));
-            tempNode->station = temp.station;
-            tempNode->time = temp.dataTime;
-            tempNode->busName = temp.busName;
-            tail[listNum]->link = tempNode;
-            tail[listNum] = tail[listNum]->link;
-            printf("%d\n%d\n%d", head[listNum]->time, head[listNum]->busName, head[listNum]->station);
-            printf("\n");
+        if (listNum == 0) {/*ì²« ë°ì´í„°*/
+            //í—¤ë“œ ì„ ì–¸
+            head[listNum]->next_c= tail[listNum];
+            head[listNum]->plateNo = temp.plateNo;
+            head[listNum]->stationExp = temp.stationSeq;//expê°’ ì—…ë°ì´íŠ¸
+            
+            /*listì— node ì¶”ê°€*/
+            bus_node* tempNode = (bus_node*)malloc(sizeof(bus_node));
+            tempNode->stationSeq = temp.stationSeq;
+            tempNode->qtime = temp.qtime;
+            tempNode->plateNo = temp.plateNo;
+            tail[listNum]->next = tempNode;
+            tail[listNum] = tail[listNum]->next;
+
             listNum++;
-        }
+        } 
         else {
             j = 0;
             for (i = 0; i < listNum; i++) {
-                if (head[i]->busName != temp.busName) {
+                if (head[i]->plateNo != temp.plateNo) {
                     j++;
                     continue;
                 }
 
-                else if (head[i]->busName == temp.busName) {/*¹ö½º ¹øÈ£ °°À½*/
-                    if (head[i]->station < temp.station) {/*±âÁ¸ ¸®½ºÆ®¿¡ Ãß°¡(expº¸´Ù Å¬ °æ¿ì)*/
-                        head[i]->station = temp.station;
-                        listNode* tempNode = (listNode*)malloc(sizeof(listNode));
-                        tempNode->station = temp.station;
-                        tempNode->time = temp.dataTime;
-                        tempNode->busName = temp.busName;
-                        tail[i]->link = tempNode;
-                        tail[i] = tail[i]->link;
-                        
+                else if (head[i]->plateNo == temp.plateNo) {/*ë²„ìŠ¤ ë²ˆí˜¸ ê°™ìŒ*/
+                    if (head[i]->stationExp < temp.stationSeq) {/*ê¸°ì¡´ ë¦¬ìŠ¤íŠ¸ì— ì¶”ê°€(expë³´ë‹¤ í´ ê²½ìš°)*/
+                        head[i]->stationExp = temp.stationSeq;//exp ì—…ë°ì´íŠ¸
+                        bus_node* tempNode = (bus_node*)malloc(sizeof(bus_node));
+                        tempNode->stationSeq = temp.stationSeq;
+                        tempNode->qtime = temp.qtime;
+                        tempNode->plateNo = temp.plateNo;
+                        tail[i]->next = tempNode;
+                        tail[i] = tail[i]->next;
+
                     }
-                    else if (head[j]->station == temp.station) {
-                        break;/*´ÙÀ½ data ³Ñ¾î°¡¾ßÇÔ*/
+                    else if (head[j]->stationExp == temp.stationSeq) {
+                        break;/*ë‹¤ìŒ data ë„˜ì–´ê°€ì•¼í•¨*/
                     }
 
-                    else {/*»õ·Î¿î list ¸¸µé°í Ãß°¡(expº¸´Ù ÀÛÀ» °æ¿ì)*/
+                    else {/*ìƒˆë¡œìš´ list ë§Œë“¤ê³  ì¶”ê°€(expë³´ë‹¤ ìž‘ì„ ê²½ìš°)*/
                         j++;
                     }
                 }
             }
             if (j == listNum) {
-               
-                
                 tail[listNum] = head[listNum];
-                head[listNum]->busName = temp.busName;
-                head[listNum]->station = temp.station;//exp°ª ¾÷µ¥ÀÌÆ®
-                head[listNum]->time = listNum + 1;
-                /*list¿¡ Ãß°¡*/
-                listNode* tempNode = (listNode*)malloc(sizeof(listNode));
-                tempNode->station = temp.station;
-                tempNode->time = temp.dataTime;
-                tempNode->busName = temp.busName;
-                tail[listNum]->link = tempNode;
-                tail[listNum] = tail[listNum]->link;
+                head[listNum]->plateNo = temp.plateNo;
+                head[listNum]->stationExp = temp.stationSeq;//expê°’ ì—…ë°ì´íŠ¸
+
+                /*listì— ì¶”ê°€*/
+                bus_node* tempNode = (bus_node*)malloc(sizeof(bus_node));
+                tempNode->stationSeq = temp.stationSeq;
+                tempNode->qtime = temp.qtime;
+                tempNode->plateNo = temp.plateNo;
+                tail[listNum]->next = tempNode;
+                tail[listNum] = tail[listNum]->next;
                 listNum++;
             }
         }
     }
-    head[0] = head[0]->link;
-    head[1] = head[1]->link;
-    head[2] = head[2]->link;
-    head[0] = head[0]->link;
-    head[1] = head[1]->link;
-    head[2] = head[2]->link;
-    head[0] = head[0]->link;
-    head[1] = head[1]->link;
-    head[2] = head[2]->link;
+    
+    printf("%d", head[2]->stationExp);
 
-    printf("%d %d %d\n", head[0]->time, head[0]->busName, head[0]->station);
-    printf("%d %d %d\n", head[1]->time, head[1]->busName, head[1]->station);
-    printf("%d %d %d\n", head[2]->time, head[2]->busName, head[2]->station);
+    
+}
+
+struct tm read_first_line(FILE* f) {
+    char* buffer;
+    struct tm t;
+
+    buffer = (char)malloc(sizeof(char) * 33);
+
+    fgets(buffer, sizeof(buffer), f);
+
+    char* routeid = strtok(buffer, " ");
+    int routeId = atoi(routeid);
+
+    char* strYear = strtok(buffer, "-");
+    int year = atoi(strYear);
+
+    char* strMonth = strtok(NULL, "-");
+    int month = atoi(strMonth);
+
+    char* strDay = strtok(NULL, "T");
+    int day = atoi(strDay);
+
+    char* strHour = strtok(NULL, ":");
+    int hour = atoi(strHour);
+
+    char* strMinute = strtok(NULL, ":");
+    int minute = atoi(strMinute);
+
+    char* strSecond = strtok(NULL, ".");
+    int second = atoi(strSecond);
+
+    route = routeId;
+    t.tm_year = year;
+    t.tm_mon = month;
+    t.tm_mday = day;
+    t.tm_hour = hour;
+    t.tm_min = minute;
+    t.tm_sec = second;
+
+    free(buffer);
+
+    return t;
 }
 
 
+data data_read(FILE* f) {
+    char* buffer;
+    char* plateNo;
+    data n;
+
+  
+    buffer = (char)malloc(sizeof(char) * 74);
+
+    fgets(buffer, sizeof(buffer), f);
+
+    char* strYear = strtok(buffer, "-");
+    int year = atoi(strYear);
+
+    char* strMonth = strtok(NULL, "-");
+    int month = atoi(strMonth);
+
+    char* strDay = strtok(NULL, "T");
+    int day = atoi(strDay);
+
+    char* strHour = strtok(NULL, ":");
+    int hour = atoi(strHour);
+
+    char* strMinute = strtok(NULL, ":");
+    int minute = atoi(strMinute);
+
+    char* strSecond = strtok(NULL, ".");
+    int second = atoi(strSecond);
+
+    char* e_b = strtok(NULL, " ");
+    int endbus = atoi(e_b);
+
+    char* l_p = strtok(NULL, " ");
+    int lowplate = atoi(l_p);
+
+    plateNo = strtok(NULL, " ");
+
+    char* p_t = strtok(NULL, " ");
+    int platetype = atoi(p_t);
+
+    char* r_s = strtok(NULL, " ");
+    int remainseat = atoi(r_s);
+
+    char* r_i = strtok(NULL, " ");
+    int routeId = atoi(r_i);
+
+    char* s_i = strtok(NULL, " ");
+    int stationId = atoi(s_i);
+
+    char* s_s = strtok(NULL, " ");
+    int stationSeq = atoi(s_s);
+
+    n.qtime.tm_year = year;
+    n.qtime.tm_mon = month;
+    n.qtime.tm_mday = day;
+    n.qtime.tm_hour = hour;
+    n.qtime.tm_min = minute;
+    n.qtime.tm_sec = second;
+    n.endBus = endbus;
+    n.lowPlate = lowplate;
+    n.plateNo = plateNo;
+    n.plateType = platetype;
+    n.remainSeat = remainseat;
+    n.routeId = routeId;
+    n.stationId = stationId;
+    n.stationSeq = stationSeq;
+
+    return n;
+}
