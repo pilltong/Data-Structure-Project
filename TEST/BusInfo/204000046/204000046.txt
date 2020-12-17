@@ -19,3 +19,6 @@ startStationName 운중동먹거리촌
 upFirstTime 05:00
 upLastTime 23:10
 nPeekAlloc 25
+totalStation 55
+totalStation totalStation 1
+totalStation 55
